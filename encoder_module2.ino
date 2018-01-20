@@ -45,6 +45,16 @@ bool is_initialized = false;
 double K1 = 0.97;//0.95
 double filtered_angle, relative_angle;
 double lasttime = 0;
+
+double Enc0list[] = {0,0,0,0,0,0,0,0,0,0};
+double Enc1list[] = {0,0,0,0,0,0,0,0,0,0};
+double Enc2list[] = {0,0,0,0,0,0,0,0,0,0};
+double timelist[] = {0,0,0,0,0,0,0,0,0,0};
+
+double enc0_update_time = 0,enc1_update_time = 0,enc2_update_time = 0;
+
+
+
 void setup() {
   pinMode(encoder0PinA, INPUT);
   digitalWrite(encoder0PinA, HIGH); // turn on pullup resistor
@@ -163,15 +173,10 @@ void loop() {
       }
     }
   }
-  if (micros() - lasttime > 10000) {
-    //5000
-    
-    lasttime = micros();
-  }
 }
 
 void doEncoder() {
-
+  enc0_update_time = micros();
   if (!digitalRead(encoder0PinB)) {
     encoder0Pos++;
   } else {
@@ -180,6 +185,7 @@ void doEncoder() {
 }
 
 void doEncoder2() {
+  enc1_update_time = micros();
   if (!digitalRead(encoder1PinB)) {
     encoder1Pos++;
   } else {
@@ -188,6 +194,7 @@ void doEncoder2() {
 }
 
 void doEncoder3() {
+  enc2_update_time = micros();
   if (!digitalRead(encoder2PinB)) {
     encoder2Pos++;
   } else {
@@ -196,6 +203,38 @@ void doEncoder3() {
 }
 
 void DoIntegrate() {
+  double now = micros();
+  double enc0_inc = 0,enc1_inc = 0,enc2_inc = 0;//increment
+  for (int i = 0; i < 9 ; i ++){
+        Enc0list[9-i] = Enc0list[8 - i];
+        Enc1list[9-i] = Enc1list[8 - i];
+        Enc2list[9-i] = Enc2list[8 - i];
+        timelist[9-i] = timelist[8 - i];
+    }
+    
+    Enc0list[0] = encoder0Pos;
+    Enc1list[0] = encoder1Pos;
+    Enc2list[0] = encoder2Pos;
+    timelist[0] = now;
+    
+  double Enc0_sum,Enc1_sum,Enc2_sum;
+  for (int i = 0; i < 10 ;i++){
+      Enc0_sum += Enc0list[i];
+      Enc1_sum += Enc0list[i];
+      Enc2_sum += Enc0list[i];
+    }
+    Enc0_sum /= (now - timelist[9]);
+    Enc1_sum /= (now - timelist[9]);
+    Enc2_sum /= (now - timelist[9]);
+
+    enc0_inc = (now - enc0_update_time) * Enc0_sum;
+    enc1_inc = (now - enc1_update_time) * Enc1_sum;
+    enc2_inc = (now - enc2_update_time) * Enc2_sum;
+
+    encoder0Pos += enc0_inc;
+    encoder1Pos += enc1_inc;
+    encoder2Pos += enc2_inc;
+  
   X_temp = (0.50000 * encoder0Pos - 1.00000 * encoder1Pos + 0.50000 * encoder2Pos);
   Y_temp = (-0.50000 * encoder0Pos + 0 * encoder1Pos + 0.50000 * encoder2Pos);
   X_temp = X_temp * pi/250*30;
@@ -221,6 +260,10 @@ void DoIntegrate() {
   Serial.print("Y:    ");
   Serial.println(Y);
   */
+    encoder0Pos -= enc0_inc;
+    encoder1Pos -= enc1_inc;
+    encoder2Pos -= enc2_inc;
+  
   Serial.println(Y_temp);
 
   
