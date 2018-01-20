@@ -23,9 +23,9 @@ because arduino download and mpu6050 are using the same serial port, you need to
 #define encoder2PinB 6
 
 
-int encoder0Pos = 0;
-int encoder1Pos = 0;
-int encoder2Pos = 0;
+double encoder0Pos = 0;
+double encoder1Pos = 0;
+double encoder2Pos = 0;
 double test = 0;
 unsigned char Re_buf[11], counter = 0;
 unsigned char Acc_buf[4];
@@ -203,70 +203,78 @@ void doEncoder3() {
 }
 
 void DoIntegrate() {
-  double now = micros();
   double enc0_inc = 0,enc1_inc = 0,enc2_inc = 0;//increment
-  for (int i = 0; i < 9 ; i ++){
-        Enc0list[9-i] = Enc0list[8 - i];
-        Enc1list[9-i] = Enc1list[8 - i];
-        Enc2list[9-i] = Enc2list[8 - i];
-        timelist[9-i] = timelist[8 - i];
-    }
-    
-    Enc0list[0] = encoder0Pos;
-    Enc1list[0] = encoder1Pos;
-    Enc2list[0] = encoder2Pos;
-    timelist[0] = now;
-    
-  double Enc0_sum,Enc1_sum,Enc2_sum;
-  for (int i = 0; i < 10 ;i++){
-      Enc0_sum += Enc0list[i];
-      Enc1_sum += Enc0list[i];
-      Enc2_sum += Enc0list[i];
-    }
-    Enc0_sum /= (now - timelist[9]);
-    Enc1_sum /= (now - timelist[9]);
-    Enc2_sum /= (now - timelist[9]);
+  double E0 = 0,E1 = 0,E2 = 0,t0 = 0,t1 = 0,t2 = 0;
+  E0 = encoder0Pos;
+  E1 = encoder1Pos;
+  E2 = encoder2Pos;
+  t0 = enc0_update_time;
+  t1 = enc1_update_time;
+  t2 = enc2_update_time;
 
-    enc0_inc = (now - enc0_update_time) * Enc0_sum;
-    enc1_inc = (now - enc1_update_time) * Enc1_sum;
-    enc2_inc = (now - enc2_update_time) * Enc2_sum;
-
-    encoder0Pos += enc0_inc;
-    encoder1Pos += enc1_inc;
-    encoder2Pos += enc2_inc;
   
-  X_temp = (0.50000 * encoder0Pos - 1.00000 * encoder1Pos + 0.50000 * encoder2Pos);
-  Y_temp = (-0.50000 * encoder0Pos + 0 * encoder1Pos + 0.50000 * encoder2Pos);
-  X_temp = X_temp * pi/250*30;
-  Y_temp = Y_temp * pi/250*30;
+  for (int i = 0; i < 1 ; i ++){
+        Enc0list[1-i] = Enc0list[0 - i];
+        Enc1list[1-i] = Enc1list[0 - i];
+        Enc2list[1-i] = Enc2list[0 - i];
+        timelist[1-i] = timelist[0 - i];
+    }
+    
+    Enc0list[0] = E0;
+    Enc1list[0] = E1;
+    Enc2list[0] = E2;
+    
+    
+  double Enc0_sum = 0,Enc1_sum = 0,Enc2_sum = 0;
+  for (int i = 0; i < 2 ;i++){
+      Enc0_sum += Enc0list[i];
+      Enc1_sum += Enc1list[i];
+      Enc2_sum += Enc2list[i];
+    }
+    //Serial.print(Enc0_sum);
+    //Serial.print("      ");
+    Enc0_sum = Enc0_sum / (micros() - timelist[1] + 10404);
+    Enc1_sum = Enc1_sum / (micros() - timelist[1] + 10404);
+    Enc2_sum = Enc2_sum / (micros() - timelist[1] + 100404);
+  
+    enc0_inc = (micros() - t0) * Enc0_sum;
+    enc1_inc = (micros() - t1) * Enc1_sum;
+    enc2_inc = (micros() - t2) * Enc2_sum;
+/*
+    E0 += enc0_inc;
+    E1 += enc1_inc;
+    E2 += enc2_inc;
+  */
+  X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
+  Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
+  X_temp = X_temp * pi/250*30*1.25;
+  Y_temp = Y_temp * pi/250*30*1.25;
+
+  
   
   //TO-DO
-  enc_temp = (0.09700 * 3.0000 * encoder0Pos * pi / 250.0000 + 0.09700 * 3.0000 * encoder2Pos * pi / 250.0000);
+  enc_temp = (0.09700 * 3.0000 * E0 * pi / 250.0000 + 0.09700 * 3.0000 * E2 * pi / 250.0000);
   //TO-DO
   enc_angle += enc_temp;
   double relative_angle2 =  0;
   relative_angle2 = atan2(sin((angle[2] * pi / 180.0) - first_heading), cos((angle[2] * pi / 180.0) - first_heading));
   filtered_angle = K1 * atan2(sin(relative_angle2), cos(relative_angle2)) + (1 - K1) * (atan2(sin(enc_angle), cos(enc_angle)));
   relative_angle = filtered_angle;
-  //X += X_temp * cos(relative_angle) - Y_temp * sin(relative_angle);
-  //Y += X_temp * sin(relative_angle) + Y_temp * cos(relative_angle);
-  
+  X += X_temp * cos(relative_angle) - Y_temp * sin(relative_angle);
+  Y += X_temp * sin(relative_angle) + Y_temp * cos(relative_angle);
   enc_angle = filtered_angle;
   encoder_reset();
   last_angle = filtered_angle;
-  /*
+  
   Serial.print("X:    ");
   Serial.print(X);
   Serial.print("Y:    ");
   Serial.println(Y);
-  */
-    encoder0Pos -= enc0_inc;
-    encoder1Pos -= enc1_inc;
-    encoder2Pos -= enc2_inc;
   
-  Serial.println(Y_temp);
 
   
+
+  timelist[0] = micros();
 }
 void encoder_reset() {
   encoder0Pos = 0;
