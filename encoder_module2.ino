@@ -66,7 +66,7 @@ void setup() {
   // initialize serial:
   pinMode(12, OUTPUT);
   pinMode(13, OUTPUT);
-  Serial.begin(115200);
+  //Serial.begin(115200);
   Serial2.begin(115200);
   Serial3.begin(115200);
   lasttime = micros();
@@ -76,6 +76,8 @@ void setup() {
 void loop() {
   //Serial.println(Y);
   digitalWrite(12, 1);
+
+  
   while (Serial3.available() > 0) {
     command = Serial3.read();
     switch (command) {
@@ -88,10 +90,10 @@ void loop() {
         Serial3.print((char)Acc_buf[3]);
         break;
       case 9:
-        sendfloat((float)X);
+        sendfloat((float)-X);
         break;
       case 8:
-        sendfloat((float)Y);
+        sendfloat((float)-Y);
         break;
       case 7:
         first_heading = angle[2] * pi / 180;
@@ -196,7 +198,7 @@ void doEncoder2() {
 void doEncoder3() {
   enc2_update_time = micros();
   if (!digitalRead(encoder2PinB)) {
-    encoder2Pos++;
+    encoder2Pos++;   
   } else {
     encoder2Pos--;
   }
@@ -247,8 +249,8 @@ void DoIntegrate() {
   */
   X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
   Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
-  X_temp = X_temp * pi/250*30*1.25;
-  Y_temp = Y_temp * pi/250*30*1.25;
+  X_temp = X_temp * pi/250*30*1.40;
+  Y_temp = Y_temp * pi/250*30*1.40;
 
   
   
@@ -262,18 +264,15 @@ void DoIntegrate() {
   relative_angle = filtered_angle;
   X += X_temp * cos(relative_angle) - Y_temp * sin(relative_angle);
   Y += X_temp * sin(relative_angle) + Y_temp * cos(relative_angle);
+  /*
+  Serial.print("X: ");
+  Serial.print(-X);
+  Serial.print("Y: ");
+  Serial.println(-Y);
+  */
   enc_angle = filtered_angle;
   encoder_reset();
   last_angle = filtered_angle;
-  
-  Serial.print("X:    ");
-  Serial.print(X);
-  Serial.print("Y:    ");
-  Serial.println(Y);
-  
-
-  
-
   timelist[0] = micros();
 }
 void encoder_reset() {
