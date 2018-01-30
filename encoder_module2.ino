@@ -26,6 +26,7 @@ because arduino download and mpu6050 are using the same serial port, you need to
 double encoder0Pos = 0;
 double encoder1Pos = 0;
 double encoder2Pos = 0;
+
 double test = 0;
 unsigned char Re_buf[11], counter = 0;
 unsigned char Acc_buf[4];
@@ -36,8 +37,12 @@ float a[3] = {0, 0, 0}, w[3] = {0, 0, 0}, angle[3] = {0, 0, 0}, T;
 byte angle_data[3];
 byte command = 0;
 int led = 0;
+
 double X = 0, Y = 0, X_temp = 0, Y_temp = 0, enc_temp = 0;
 double last_angle = 0;
+
+double angle_t = 0;
+
 double pi = 3.1415926;
 double first_heading = 0;
 double enc_angle = 0;
@@ -45,7 +50,7 @@ bool is_initialized = false;
 double K1 = 0.97;//0.95
 double filtered_angle, relative_angle;
 double lasttime = 0;
-
+double sendtime = 0;
 double Enc0list[] = {0,0,0,0,0,0,0,0,0,0};
 double Enc1list[] = {0,0,0,0,0,0,0,0,0,0};
 double Enc2list[] = {0,0,0,0,0,0,0,0,0,0};
@@ -66,7 +71,7 @@ void setup() {
   // initialize serial:
   pinMode(12, OUTPUT);
   pinMode(13, OUTPUT);
-  //Serial.begin(115200);
+  Serial.begin(115200);
   Serial2.begin(115200);
   Serial3.begin(115200);
   lasttime = micros();
@@ -76,7 +81,7 @@ void setup() {
 void loop() {
   //Serial.println(Y);
   digitalWrite(12, 1);
-
+  
   
   while (Serial3.available() > 0) {
     command = Serial3.read();
@@ -96,7 +101,9 @@ void loop() {
         sendfloat((float)-Y);
         break;
       case 7:
-        first_heading = angle[2] * pi / 180;
+        first_heading = angle[2] * pi / 180.0;
+            last_angle = first_heading;
+            angle_t = first_heading;
         enc_angle = 0;
         X = 0;
         Y = 0;
@@ -165,16 +172,29 @@ void loop() {
           if (!is_initialized) {
             first_heading = angle[2] * pi / 180.0;
             last_angle = first_heading;
+            angle_t = first_heading;
             is_initialized = true;
           }
           //Serial.println(angle[2]);
           angle_buf[0] = Re_buf[7];
           angle_buf[1] = Re_buf[6];
-          DoIntegrate();
+          
           break;
       }
     }
   }
+  if (micros() - lasttime > 5000){
+      DoIntegrate();
+      lasttime = micros();
+    }
+    if (millis() - sendtime > 200){
+       
+  Serial.print("X: ");
+  Serial.print(-X);
+  Serial.print("Y: ");
+  Serial.println(-Y);
+  sendtime = millis();
+      }
 }
 
 void doEncoder() {
@@ -205,75 +225,49 @@ void doEncoder3() {
 }
 
 void DoIntegrate() {
+  double ang = angle[2];
   double enc0_inc = 0,enc1_inc = 0,enc2_inc = 0;//increment
   double E0 = 0,E1 = 0,E2 = 0,t0 = 0,t1 = 0,t2 = 0;
   E0 = encoder0Pos;
   E1 = encoder1Pos;
   E2 = encoder2Pos;
-  t0 = enc0_update_time;
-  t1 = enc1_update_time;
-  t2 = enc2_update_time;
-
-  
-  for (int i = 0; i < 1 ; i ++){
-        Enc0list[1-i] = Enc0list[0 - i];
-        Enc1list[1-i] = Enc1list[0 - i];
-        Enc2list[1-i] = Enc2list[0 - i];
-        timelist[1-i] = timelist[0 - i];
-    }
-    
-    Enc0list[0] = E0;
-    Enc1list[0] = E1;
-    Enc2list[0] = E2;
-    
-    
-  double Enc0_sum = 0,Enc1_sum = 0,Enc2_sum = 0;
-  for (int i = 0; i < 2 ;i++){
-      Enc0_sum += Enc0list[i];
-      Enc1_sum += Enc1list[i];
-      Enc2_sum += Enc2list[i];
-    }
-    //Serial.print(Enc0_sum);
-    //Serial.print("      ");
-    Enc0_sum = Enc0_sum / (micros() - timelist[1] + 10404);
-    Enc1_sum = Enc1_sum / (micros() - timelist[1] + 10404);
-    Enc2_sum = Enc2_sum / (micros() - timelist[1] + 100404);
-  
-    enc0_inc = (micros() - t0) * Enc0_sum;
-    enc1_inc = (micros() - t1) * Enc1_sum;
-    enc2_inc = (micros() - t2) * Enc2_sum;
-/*
-    E0 += enc0_inc;
-    E1 += enc1_inc;
-    E2 += enc2_inc;
-  */
-  X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
-  Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
-  X_temp = X_temp * pi/250*30*1.40;
-  Y_temp = Y_temp * pi/250*30*1.40;
-
-  
-  
-  //TO-DO
-  enc_temp = (0.09700 * 3.0000 * E0 * pi / 250.0000 + 0.09700 * 3.0000 * E2 * pi / 250.0000);
-  //TO-DO
+  encoder_reset();
   enc_angle += enc_temp;
   double relative_angle2 =  0;
-  relative_angle2 = atan2(sin((angle[2] * pi / 180.0) - first_heading), cos((angle[2] * pi / 180.0) - first_heading));
-  filtered_angle = K1 * atan2(sin(relative_angle2), cos(relative_angle2)) + (1 - K1) * (atan2(sin(enc_angle), cos(enc_angle)));
-  relative_angle = filtered_angle;
-  X += X_temp * cos(relative_angle) - Y_temp * sin(relative_angle);
-  Y += X_temp * sin(relative_angle) + Y_temp * cos(relative_angle);
-  /*
-  Serial.print("X: ");
-  Serial.print(-X);
-  Serial.print("Y: ");
-  Serial.println(-Y);
-  */
+  relative_angle2 = (((ang * pi / 180.0 + angle_t) * 0.5 - first_heading));
+  double K = pi;
+  if (relative_angle2 < -K){
+    relative_angle2 += 2*K;
+    }
+  if (relative_angle2 > K){
+    relative_angle2 -= 2*K;
+    }  
+
+      double s = sqrt(X_temp * X_temp + Y_temp * Y_temp);
+      double da = ang * pi / 180.0 - angle_t;
+      double K2 = pi;
+    if (da < -K){
+      da += 2*K;
+      }
+    if (da > K){
+      da -= 2*K;
+      }
+      angle_t += da * 0.5;
+      
+  
+  
+  X += X_temp * cos(angle_t) - Y_temp * sin(angle_t);
+  Y += X_temp * sin(angle_t) + Y_temp * cos(angle_t);
+    
+
+  X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
+  Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
+  X_temp = X_temp * pi/250*30*1.15;
+  Y_temp = Y_temp * pi/250*30*0.98;
+
   enc_angle = filtered_angle;
-  encoder_reset();
+  angle_t = ang * pi / 180.0;
   last_angle = filtered_angle;
-  timelist[0] = micros();
 }
 void encoder_reset() {
   encoder0Pos = 0;
