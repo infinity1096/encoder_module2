@@ -225,7 +225,8 @@ void doEncoder3() {
 }
 
 void DoIntegrate() {
-  double ang = angle[2];
+  double ang = angle[2] *pi / 180.0 - first_heading;
+
   double enc0_inc = 0,enc1_inc = 0,enc2_inc = 0;//increment
   double E0 = 0,E1 = 0,E2 = 0,t0 = 0,t1 = 0,t2 = 0;
   E0 = encoder0Pos;
@@ -233,8 +234,14 @@ void DoIntegrate() {
   E2 = encoder2Pos;
   encoder_reset();
   enc_angle += enc_temp;
+  if (ang < -pi){
+    ang += 2*pi;
+    }
+  if (ang > pi){
+    ang -= 2*pi;
+    }
   double relative_angle2 =  0;
-  relative_angle2 = (((ang * pi / 180.0 + angle_t) * 0.5 - first_heading));
+  relative_angle2 = (((ang + angle_t) * 0.5 - first_heading));
   double K = pi;
   if (relative_angle2 < -K){
     relative_angle2 += 2*K;
@@ -244,7 +251,7 @@ void DoIntegrate() {
     }  
 
       double s = sqrt(X_temp * X_temp + Y_temp * Y_temp);
-      double da = ang * pi / 180.0 - angle_t;
+      double da = ang - angle_t;
       double K2 = pi;
     if (da < -K){
       da += 2*K;
@@ -262,11 +269,11 @@ void DoIntegrate() {
 
   X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
   Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
-  X_temp = X_temp * pi/250*30*1.15;
-  Y_temp = Y_temp * pi/250*30*0.98;
+  X_temp = X_temp * pi/500.0f*30*1.15;
+  Y_temp = Y_temp * pi/500.0f*30*0.98;
 
   enc_angle = filtered_angle;
-  angle_t = ang * pi / 180.0;
+  angle_t = ang;
   last_angle = filtered_angle;
 }
 void encoder_reset() {
