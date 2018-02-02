@@ -51,10 +51,6 @@ double K1 = 0.97;//0.95
 double filtered_angle, relative_angle;
 double lasttime = 0;
 double sendtime = 0;
-double Enc0list[] = {0,0,0,0,0,0,0,0,0,0};
-double Enc1list[] = {0,0,0,0,0,0,0,0,0,0};
-double Enc2list[] = {0,0,0,0,0,0,0,0,0,0};
-double timelist[] = {0,0,0,0,0,0,0,0,0,0};
 
 double enc0_update_time = 0,enc1_update_time = 0,enc2_update_time = 0;
 
@@ -71,7 +67,7 @@ void setup() {
   // initialize serial:
   pinMode(12, OUTPUT);
   pinMode(13, OUTPUT);
-  Serial.begin(115200);
+  //Serial.begin(115200);
   Serial2.begin(115200);
   Serial3.begin(115200);
   lasttime = micros();
@@ -142,27 +138,6 @@ void loop() {
 
       switch (Re_buf [1])
       {
-        case 0x51:
-          a[0] = (short(Re_buf [3] << 8 | Re_buf [2])) / 32768.0 * 16;
-          a[1] = (short(Re_buf [5] << 8 | Re_buf [4])) / 32768.0 * 16;
-          a[2] = (short(Re_buf [7] << 8 | Re_buf [6])) / 32768.0 * 16;
-          T = (short(Re_buf [9] << 8 | Re_buf [8])) / 340.0 + 36.25;
-
-          Acc_buf[0] = Re_buf[3];
-          Acc_buf[1] = Re_buf[2];
-          Acc_buf[2] = Re_buf[5];
-          Acc_buf[3] = Re_buf[4];
-          break;
-        case 0x52:
-          w[0] = (short(Re_buf [3] << 8 | Re_buf [2])) / 32768.0 * 2000;
-          w[1] = (short(Re_buf [5] << 8 | Re_buf [4])) / 32768.0 * 2000;
-          w[2] = (short(Re_buf [7] << 8 | Re_buf [6])) / 32768.0 * 2000;
-          T = (short(Re_buf [9] << 8 | Re_buf [8])) / 340.0 + 36.25;
-
-          w_buf[0] = Re_buf[7];
-          w_buf[0] = Re_buf[6];
-
-          break;
         case 0x53:
           angle[0] = (short(Re_buf [3] << 8 | Re_buf [2])) / 32768.0 * 180;
           angle[1] = (short(Re_buf [5] << 8 | Re_buf [4])) / 32768.0 * 180;
@@ -178,27 +153,16 @@ void loop() {
           //Serial.println(angle[2]);
           angle_buf[0] = Re_buf[7];
           angle_buf[1] = Re_buf[6];
-          
+          DoIntegrate();
           break;
       }
     }
   }
-  if (micros() - lasttime > 5000){
-      DoIntegrate();
-      lasttime = micros();
-    }
-    if (millis() - sendtime > 200){
-       
-  Serial.print("X: ");
-  Serial.print(-X);
-  Serial.print("Y: ");
-  Serial.println(-Y);
-  sendtime = millis();
-      }
+  //if (micros() - lasttime > 5000){
+     
 }
 
 void doEncoder() {
-  enc0_update_time = micros();
   if (!digitalRead(encoder0PinB)) {
     encoder0Pos++;
   } else {
@@ -207,7 +171,6 @@ void doEncoder() {
 }
 
 void doEncoder2() {
-  enc1_update_time = micros();
   if (!digitalRead(encoder1PinB)) {
     encoder1Pos++;
   } else {
@@ -216,7 +179,6 @@ void doEncoder2() {
 }
 
 void doEncoder3() {
-  enc2_update_time = micros();
   if (!digitalRead(encoder2PinB)) {
     encoder2Pos++;   
   } else {
@@ -260,18 +222,15 @@ void DoIntegrate() {
       da -= 2*K;
       }
       angle_t += da * 0.5;
-      
-  
-  
-  X += X_temp * cos(angle_t) - Y_temp * sin(angle_t);
-  Y += X_temp * sin(angle_t) + Y_temp * cos(angle_t);
+  double cosine = cos(angle_t),sine = sin(angle_t);
+  X += X_temp * cosine - Y_temp * sine;
+  Y += X_temp * sine + Y_temp * cosine;
     
 
   X_temp = (0.50000 * E0 - 1.00000 * E1 + 0.50000 * E2);
   Y_temp = (-0.50000 * E0 + 0 * E1 + 0.50000 * E2);
-  X_temp = X_temp * pi/500.0f*30*1.15;
-  Y_temp = Y_temp * pi/500.0f*30*0.98;
-
+  X_temp = X_temp * pi/500.0f*30*1.00;
+  Y_temp = Y_temp * pi/500.0f*30*1.00;
   enc_angle = filtered_angle;
   angle_t = ang;
   last_angle = filtered_angle;
